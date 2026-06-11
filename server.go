@@ -5,7 +5,7 @@ import (
     "net/http"
     "time"
 )
-
+	
 func main() {
     http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "text/plain")
