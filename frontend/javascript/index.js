@@ -27,7 +27,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   createSpeedtest();
   hookUpButtons();
   startRenderingLoop();
-  applySettingsJSON();
   applyServerListJSON();
 });
 
@@ -108,48 +107,21 @@ async function copyLinkButtonClickHandler() {
 }
 
 /**
- * Load settings from settings.json on the server and apply them
- */
-async function applySettingsJSON() {
-  try {
-    const response = await fetch("settings.json?v=" + Date.now());
-    const settings = await response.json();
-    if (!settings || typeof settings !== "object") {
-      return console.error("Settings are empty or malformed");
-    }
-    for (let setting in settings) {
-      testState.speedtest.setParameter(setting, settings[setting]);
-      if (
-        setting == "telemetry_level" &&
-        settings[setting] &&
-        settings[setting] != "off" &&
-        settings[setting] != "disabled" &&
-        settings[setting] != "false"
-      ) {
-        testState.telemetryEnabled = true;
-        document.querySelector("#privacy-warning").classList.remove("hidden");
-      }
-    }
-  } catch (error) {
-    console.error("Failed to fetch settings:", error);
-  }
-}
-
-/**
  * Load server list from the configured source and populate the dropdown
  */
 async function applyServerListJSON() {
   try {
-    const serverSource =
-      typeof globalThis.SPEEDTEST_SERVERS !== "undefined"
-        ? globalThis.SPEEDTEST_SERVERS
-        : "server-list.json";
-    const servers = Array.isArray(serverSource)
-      ? serverSource
-      : await fetch(serverSource + "?v=" + Date.now()).then((response) => response.json());
-    if (!servers || !Array.isArray(servers) || servers.length === 0) {
-      return console.error("Server list is empty or malformed");
-    }
+    // Inlined server configuration to bypass any CDN caching issues
+    const servers = [
+      {
+        name: "Speedtest Server",
+        server: "/",
+        dlURL: "download",
+        ulURL: "upload",
+        pingURL: "ping",
+        getIpURL: "ping"
+      }
+    ];
 
     testState.servers = servers;
 
