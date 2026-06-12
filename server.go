@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -27,7 +28,8 @@ func main() {
 	// Upload endpoint
 	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		r.Body.Close()
+		// Read and discard body to prevent connection reset by peer
+		_, _ = io.Copy(io.Discard, r.Body)
 		fmt.Fprintf(w, "ok")
 	})
 
