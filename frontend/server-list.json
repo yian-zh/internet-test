@@ -1,7 +1,7 @@
 [
   {
     "name": "Local Server",
-    "server": "http://localhost:8080/",
+    "server": "/",
     "dlURL": "download",
     "ulURL": "upload",
     "pingURL": "ping",
