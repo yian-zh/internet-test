@@ -32,8 +32,8 @@ func main() {
 	})
 
 	// Serve frontend LAST — must be after all other routes
-	fs := http.FileServer(http.Dir(`C:\Users\ADMIN PC.BENNY\speed-test\frontend`))
-http.Handle("/", fs)
+	fs := http.FileServer(http.Dir("frontend"))
+	http.Handle("/", fs)
 
 	fmt.Println("Server running on :8080")
 	err := http.ListenAndServe(":8080", nil)
