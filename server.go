@@ -1,28 +1,43 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
-    "time"
+	"fmt"
+	"net/http"
+	"time"
 )
-	
+
 func main() {
-    http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "text/plain")
-        fmt.Fprintf(w, "%d", time.Now().UnixMilli())
-    })
+	// Ping endpoint
+	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		fmt.Fprintf(w, "%d", time.Now().UnixMilli())
+	})
 
-    http.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
-        data := make([]byte, 10*1024*1024) // 10 MB
-        w.Header().Set("Content-Type", "application/octet-stream")
-        w.Write(data)
-    })
+	// Download endpoint
+	http.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		data := make([]byte, 10*1024*1024)
+		w.Write(data)
+	})
 
-    http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-        r.Body.Close()
-        fmt.Fprintf(w, "ok")
-    })
+	// Upload endpoint
+	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		r.Body.Close()
+		fmt.Fprintf(w, "ok")
+	})
 
-    fmt.Println("Server running on :8080")
-    http.ListenAndServe(":8080", nil)
+	// Serve frontend LAST — must be after all other routes
+	fs := http.FileServer(http.Dir(`C:\Users\ADMIN PC.BENNY\speed-test\frontend`))
+http.Handle("/", fs)
+
+	fmt.Println("Server running on :8080")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
 }
