@@ -112,7 +112,7 @@ async function copyLinkButtonClickHandler() {
  */
 async function applySettingsJSON() {
   try {
-    const response = await fetch("settings.json");
+    const response = await fetch("settings.json?v=" + Date.now());
     const settings = await response.json();
     if (!settings || typeof settings !== "object") {
       return console.error("Settings are empty or malformed");
@@ -146,7 +146,7 @@ async function applyServerListJSON() {
         : "server-list.json";
     const servers = Array.isArray(serverSource)
       ? serverSource
-      : await fetch(serverSource).then((response) => response.json());
+      : await fetch(serverSource + "?v=" + Date.now()).then((response) => response.json());
     if (!servers || !Array.isArray(servers) || servers.length === 0) {
       return console.error("Server list is empty or malformed");
     }
