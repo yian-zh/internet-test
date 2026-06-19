@@ -7,7 +7,7 @@ WORKDIR /app
 COPY go.mod ./
 
 # Download dependencies
-RUN go mod download
+RUN GO111MODULE=on go mod download -x
 
 # Copy source code and modules
 COPY . .
