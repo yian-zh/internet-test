@@ -144,19 +144,11 @@ async function copyLinkButtonClickHandler() {
  */
 async function applyServerListJSON() {
   try {
-    // Inlined multi-server configuration for comparative analysis
+    // Inlined target configurations. Absolute URL path bypasses worker ping issues.
     const servers = [
       {
         name: "Our Cloud Server (Singapore)",
-        server: "/",
-        dlURL: "download",
-        ulURL: "upload",
-        pingURL: "ping",
-        getIpURL: "ping"
-      },
-      {
-        name: "Comparative Baseline (Tokyo, Japan)",
-        server: "https://jp-tokyo.public-speedtest.net/",
+        server: "https://king-prawn-app-wztk3.ondigitalocean.app/",
         dlURL: "download",
         ulURL: "upload",
         pingURL: "ping",
@@ -178,14 +170,10 @@ async function applyServerListJSON() {
     testState.speedtest.addTestPoints(servers);
     testState.speedtest.selectServer((bestServer) => {
       const aliveServers = testState.servers.filter((s) => {
-        // Keep servers that responded to ping (pingT !== -1).
         if (s.pingT !== -1) return true;
-        // Also keep protocol-relative servers ("//...") as a defensive fallback.
         return typeof s.server === "string" && s.server.startsWith("//");
       });
 
-      // Prefer to show only reachable servers, but if none are reachable,
-      // fall back to the full list so users can still pick a server manually.
       if (aliveServers.length > 0) {
         testState.servers = aliveServers;
       }
@@ -212,13 +200,11 @@ function populateDropdown(servers) {
   const serverSelector = document.querySelector("div.server-selector");
   const serverList = serverSelector.querySelector("ul.servers");
 
-  // Reset previous state (populateDropdown can be called multiple times)
   serverSelector.classList.remove("single-server");
   serverSelector.classList.remove("active");
   serverList.classList.remove("active");
   serverList.innerHTML = "";
 
-  // If we have only a single server, just show it
   if (servers.length === 1) {
     serverSelector.classList.add("single-server");
     selectServer(servers[0]);
@@ -226,7 +212,6 @@ function populateDropdown(servers) {
   }
   serverSelector.classList.add("active");
 
-  // Make the dropdown open and close (hook only once)
   if (serverSelector.dataset.hooked !== "1") {
     serverSelector.dataset.hooked = "1";
 
@@ -239,7 +224,6 @@ function populateDropdown(servers) {
     });
   }
 
-  // Sort servers by country, then by city within the same country.
   const parseServerName = (name) => {
     const parts = (name || "").split(",").map((s) => s.trim());
     let country, city;
@@ -262,7 +246,6 @@ function populateDropdown(servers) {
     return pa.country.localeCompare(pb.country) || pa.city.localeCompare(pb.city);
   });
 
-  // Populate the list to choose from
   sorted.forEach((server) => {
     const item = document.createElement("li");
     const link = document.createElement("a");
