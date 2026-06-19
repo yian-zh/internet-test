@@ -3,14 +3,14 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod
+# Copy your tracking configuration files
 COPY go.mod ./
 
-# Download dependencies
-RUN GO111MODULE=on go mod download -x
+# Copy your source code so the compiler can scan it
+COPY server.go .
 
-# Copy source code and modules
-COPY . .
+# Tell Go to automatically find, download, and fix the missing driver signatures
+RUN go mod tidy
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -o server server.go
