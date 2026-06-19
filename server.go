@@ -124,8 +124,7 @@ func main() {
 		// --- CASE 1: FETCH DATA (GET METHOD) ---
 		if r.Method == http.MethodGet {
 			// Query the last 15 test rows from the cluster ordered by newest first
-			query := `SELECT test_time, ping_ms, jitter_ms, download_mbps, upload_mbps, testing_platform 
-			          FROM speed_test_results ORDER BY test_time DESC LIMIT 15`
+			query := `SELECT test_time, ping_ms, jitter_ms, download_mbps, upload_mbps, testing_platform FROM speed_test_results ORDER BY test_time DESC LIMIT 15`
 			rows, err := db.Query(query)
 			if err != nil {
 				log.Printf("Error fetching rows from database: %v\n", err)
@@ -161,8 +160,7 @@ func main() {
 			}
 
 			// Insert metrics along with the platform identity row
-			query := `INSERT INTO speed_test_results (ping_ms, jitter_ms, download_mbps, upload_mbps, testing_platform) 
-			          VALUES ($1, $2, $3, $4, $5)`
+			query := `INSERT INTO speed_test_results (ping_ms, jitter_ms, download_mbps, upload_mbps, testing_platform) VALUES ($1, $2, $3, $4, $5)`
 			_, err = db.Exec(query, data.PingMS, data.JitterMS, data.DownloadMbps, data.UploadMbps, data.TestingPlatform)
 			if err != nil {
 				log.Printf("Database insertion crash: %v\n", err)
