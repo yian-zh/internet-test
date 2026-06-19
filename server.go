@@ -66,6 +66,11 @@ func initDatabase() {
 		log.Printf("Error creating speed_test_results table: %v\n", err)
 		return
 	}
+
+	// INFRASTRUCTURE RUNTIME MIGRATION PATCH:
+	// Forcefully append the testing_platform column to old pre-existing tables to prevent 500 runtime execution drop outs.
+	_, _ = db.Exec(`ALTER TABLE speed_test_results ADD COLUMN IF NOT EXISTS testing_platform VARCHAR(50) DEFAULT 'LibreSpeed-DO';`)
+
 	log.Println("Successfully connected to DigitalOcean PostgreSQL database!")
 }
 
