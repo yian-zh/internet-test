@@ -218,31 +218,44 @@
       <button id="close-privacy">Close</button>
     </dialog>
 
-    <script>
+ <script>
       function loadCloudHistory() {
-        fetch('/save-results', { method: 'GET' }) // We can create a quick GET endpoint next to load rows
-          .then(res => res.json())
+        // Adding the explicit absolute path ensures it hits your Go handler instead of looking for a static file
+        fetch('/save-results', { method: 'GET' }) 
+          .then(res => {
+            if (!res.ok) throw new Error("Backend response error status: " + res.status);
+            return res.json();
+          })
           .then(data => {
             const container = document.getElementById('history-rows');
             container.innerHTML = '';
-            if(data.length === 0) {
-              container.innerHTML = '<tr><td colspan="6" style="text-align:center;">No entries stored yet.</td></tr>';
+            
+            if (!data || data.length === 0) {
+              container.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #aaa;">No entries stored yet.</td></tr>';
               return;
             }
+            
             data.forEach(row => {
               const tr = document.createElement('tr');
+              // Format timestamp cleanly
+              const testDate = row.test_time ? new Date(row.test_time).toLocaleString() : "Recent Run";
+              
               tr.innerHTML = `
-                <td>${new Date(row.test_time).toLocaleString()}</td>
-                <td style="color:#00d2ff">${row.testing_platform}</td>
-                <td>${row.ping_ms} ms</td>
-                <td>${row.jitter_ms} ms</td>
-                <td><strong>${row.download_mbps}</strong> Mbps</td>
-                <td><strong>${row.upload_mbps}</strong> Mbps</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${testDate}</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); color:#00d2ff">${row.testing_platform || 'Unknown Node'}</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${row.ping_ms} ms</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${row.jitter_ms} ms</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>${row.download_mbps}</strong> Mbps</td>
+                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>${row.upload_mbps}</strong> Mbps</td>
               `;
               container.appendChild(tr);
             });
           })
-          .catch(err => console.log("Waiting for backend query interface..."));
+          .catch(err => {
+            console.error("Dashboard synchronization error:", err);
+            const container = document.getElementById('history-rows');
+            container.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #ff4a4a;">Database synchronization waiting for container cycle... Click refresh in 10s.</td></tr>';
+          });
       }
       // Auto load history metrics when the interface is initialized
       window.addEventListener('load', loadCloudHistory);
