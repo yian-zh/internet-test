@@ -15,53 +15,6 @@
     <script type="text/javascript" src="javascript/index.js?v=2"></script>
     <link rel="stylesheet" type="text/css" href="styling/index.css" />
     <title>LibreSpeed - Free and Open Source Speedtest</title>
-    
-    <style>
-      .dashboard-section {
-        max-width: 800px;
-        margin: 50px auto;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        font-family: sans-serif;
-        color: #fff;
-      }
-      .dashboard-section h2 {
-        text-align: center;
-        margin-bottom: 20px;
-        color: #00d2ff;
-      }
-      .results-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        text-align: left;
-      }
-      .results-table th, .results-table td {
-        padding: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      .results-table th {
-        background-color: rgba(0, 210, 255, 0.1);
-        color: #00d2ff;
-      }
-      .results-table tr:hover {
-        background: rgba(255,255,255,0.02);
-      }
-      .refresh-btn {
-        background: #00d2ff;
-        color: #111;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        float: right;
-        margin-bottom: 10px;
-      }
-      .refresh-btn:hover { background: #00b5dc; }
-    </style>
   </head>
 
   <body>
@@ -118,30 +71,7 @@
       <button class="small inverted hidden" id="share-results">
         Share results
       </button>
-
-      <section class="dashboard-section">
-        <button class="refresh-btn" onclick="loadCloudHistory()">Refresh Log</button>
-        <h2>Cloud PostgreSQL Telemetry Logs</h2>
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Platform Node</th>
-              <th>Ping</th>
-              <th>Jitter</th>
-              <th>Download</th>
-              <th>Upload</th>
-            </tr>
-          </thead>
-          <tbody id="history-rows">
-            <tr>
-              <td colspan="6" style="text-align:center; color: #aaa;">Click Refresh to fetch live database entries...</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
     </main>
-
     <footer>
       <p class="source">
         <a href="stability.html">stability test</a> |
@@ -217,48 +147,5 @@
       </section>
       <button id="close-privacy">Close</button>
     </dialog>
-
- <script>
-      function loadCloudHistory() {
-        // Adding the explicit absolute path ensures it hits your Go handler instead of looking for a static file
-        fetch('/save-results', { method: 'GET' }) 
-          .then(res => {
-            if (!res.ok) throw new Error("Backend response error status: " + res.status);
-            return res.json();
-          })
-          .then(data => {
-            const container = document.getElementById('history-rows');
-            container.innerHTML = '';
-            
-            if (!data || data.length === 0) {
-              container.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #aaa;">No entries stored yet.</td></tr>';
-              return;
-            }
-            
-            data.forEach(row => {
-              const tr = document.createElement('tr');
-              // Format timestamp cleanly
-              const testDate = row.test_time ? new Date(row.test_time).toLocaleString() : "Recent Run";
-              
-              tr.innerHTML = `
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${testDate}</td>
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); color:#00d2ff">${row.testing_platform || 'Unknown Node'}</td>
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${row.ping_ms} ms</td>
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">${row.jitter_ms} ms</td>
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>${row.download_mbps}</strong> Mbps</td>
-                <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>${row.upload_mbps}</strong> Mbps</td>
-              `;
-              container.appendChild(tr);
-            });
-          })
-          .catch(err => {
-            console.error("Dashboard synchronization error:", err);
-            const container = document.getElementById('history-rows');
-            container.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #ff4a4a;">Database synchronization waiting for container cycle... Click refresh in 10s.</td></tr>';
-          });
-      }
-      // Auto load history metrics when the interface is initialized
-      window.addEventListener('load', loadCloudHistory);
-    </script>
   </body>
 </html>

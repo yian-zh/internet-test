@@ -35,45 +35,12 @@ window.addEventListener("DOMContentLoaded", async () => {
  */
 function createSpeedtest() {
   testState.speedtest = new Speedtest();
-  
   testState.speedtest.onupdate = (data) => {
     testState.testData = data;
     testState.testDataDirty = true;
   };
-
-  testState.speedtest.onend = (aborted) => {
-    testState.state = aborted ? READY : FINISHED;
-
-    // AUTOMATION PIPELINE: Automatically save metrics to cloud DB upon completion
-    if (!aborted && testState.testData) {
-      const payload = {
-        ping_ms: parseFloat(testState.testData.pingStatus) || 0,
-        jitter_ms: parseFloat(testState.testData.jitterStatus) || 0,
-        download_mbps: parseFloat(testState.testData.dlStatus) || 0,
-        upload_mbps: parseFloat(testState.testData.ulStatus) || 0,
-        testing_platform: "LibreSpeed-DO (Singapore)"
-      };
-
-      console.log("Test sequence completed. Packaging telemetry for database write...", payload);
-
-      // Transmit payload to the Go backend /save-results endpoint
-      fetch('/save-results', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify(payload)
-      })
-      .then(response => {
-        if (response.ok) {
-          console.log("Telemetry matrix successfully logged to cloud PostgreSQL cluster!");
-        } else {
-          console.error("Database gateway rejected payload:", response.statusText);
-        }
-      })
-      .catch(error => console.error("Network communication failure during transmission:", error));
-    }
-  };
+  testState.speedtest.onend = (aborted) =>
+    (testState.state = aborted ? READY : FINISHED);
 }
 
 /**
@@ -144,11 +111,11 @@ async function copyLinkButtonClickHandler() {
  */
 async function applyServerListJSON() {
   try {
-    // Inlined target configurations. Absolute URL path bypasses worker ping issues.
+    // Inlined server configuration to bypass any CDN caching issues
     const servers = [
       {
-        name: "Our Cloud Server (Singapore)",
-        server: "https://king-prawn-app-wztk3.ondigitalocean.app/",
+        name: "Speedtest Server",
+        server: "/",
         dlURL: "download",
         ulURL: "upload",
         pingURL: "ping",
@@ -170,14 +137,21 @@ async function applyServerListJSON() {
     testState.speedtest.addTestPoints(servers);
     testState.speedtest.selectServer((bestServer) => {
       const aliveServers = testState.servers.filter((s) => {
+        // Keep servers that responded to ping (pingT !== -1).
         if (s.pingT !== -1) return true;
+        // Also keep protocol-relative servers ("//...") as a defensive fallback.
+        // LibreSpeed normalizes them to the page protocol before pinging, so they
+        // are normally treated like any other server and get a real pingT value.
         return typeof s.server === "string" && s.server.startsWith("//");
       });
 
+      // Prefer to show only reachable servers, but if none are reachable,
+      // fall back to the full list so users can still pick a server manually.
       if (aliveServers.length > 0) {
         testState.servers = aliveServers;
       }
       populateDropdown(testState.servers);
+
 
       if (bestServer) {
         selectServer(bestServer);
@@ -193,18 +167,21 @@ async function applyServerListJSON() {
 }
 
 /**
- * Add all the servers to the server selection dropdown and make it actually work.
+ * Add all the servers to the server selection dropdown and make it actually
+ * work.
  * @param {Array} servers - an array of server objects
  */
 function populateDropdown(servers) {
   const serverSelector = document.querySelector("div.server-selector");
   const serverList = serverSelector.querySelector("ul.servers");
 
+  // Reset previous state (populateDropdown can be called multiple times)
   serverSelector.classList.remove("single-server");
   serverSelector.classList.remove("active");
   serverList.classList.remove("active");
   serverList.innerHTML = "";
 
+  // If we have only a single server, just show it
   if (servers.length === 1) {
     serverSelector.classList.add("single-server");
     selectServer(servers[0]);
@@ -212,6 +189,7 @@ function populateDropdown(servers) {
   }
   serverSelector.classList.add("active");
 
+  // Make the dropdown open and close (hook only once)
   if (serverSelector.dataset.hooked !== "1") {
     serverSelector.dataset.hooked = "1";
 
@@ -224,10 +202,13 @@ function populateDropdown(servers) {
     });
   }
 
+  // Sort servers by country, then by city within the same country.
+  // Name formats: "City, Country", "City, Country (qualifier)", "City, Country, Provider", "Country"
   const parseServerName = (name) => {
     const parts = (name || "").split(",").map((s) => s.trim());
     let country, city;
     if (parts.length >= 3) {
+      // "City, Country, Provider" — use second part as country
       country = parts[1];
       city = parts[0];
     } else if (parts.length === 2) {
@@ -237,6 +218,7 @@ function populateDropdown(servers) {
       country = parts[0];
       city = "";
     }
+    // Strip parenthetical qualifiers for sorting: "Germany (1) (Hetzner)" → "Germany"
     country = country.replace(/\s*\([^)]*\)\s*/g, "").trim();
     return { country, city };
   };
@@ -246,6 +228,7 @@ function populateDropdown(servers) {
     return pa.country.localeCompare(pb.country) || pa.city.localeCompare(pb.city);
   });
 
+  // Populate the list to choose from
   sorted.forEach((server) => {
     const item = document.createElement("li");
     const link = document.createElement("a");
@@ -273,6 +256,7 @@ function selectServer(server) {
  * Start the requestAnimationFrame UI rendering loop
  */
 function startRenderingLoop() {
+  // Do these queries once to speed up the rendering itself
   const serverSelector = document.querySelector("div.server-selector");
   const selectedServer = serverSelector.querySelector("#selected-server");
   const sponsor = serverSelector.querySelector("#sponsor");
@@ -301,15 +285,19 @@ function startRenderingLoop() {
     [FINISHED]: "Restart",
   };
 
+  // Show copy link button only if navigator.clipboard is available
   copyLink.classList.toggle("hidden", !navigator.clipboard);
 
   function renderUI() {
+    // Make the main button reflect the current state
     startButton.textContent = buttonTexts[testState.state];
     startButton.classList.toggle("disabled", testState.state === INITIALIZING);
     startButton.classList.toggle("active", testState.state === RUNNING);
 
+    // Disable the server selector while test is running
     serverSelector.classList.toggle("disabled", testState.state === RUNNING);
 
+    // Show selected server
     if (testState.selectedServerDirty) {
       const server = testState.speedtest.getSelectedServer();
       selectedServer.textContent = server.name;
@@ -325,6 +313,7 @@ function startRenderingLoop() {
       testState.selectedServerDirty = false;
     }
 
+    // Activate the gauges when test running or finished
     gauges.forEach((e) =>
       e.classList.toggle(
         "enabled",
@@ -332,6 +321,7 @@ function startRenderingLoop() {
       )
     );
 
+    // Show ping and jitter if data is available
     pingAndJitter.forEach((e) =>
       e.classList.toggle(
         "hidden",
@@ -343,6 +333,7 @@ function startRenderingLoop() {
       )
     );
 
+    // Show share button after test if server supports it
     shareResults.classList.toggle(
       "hidden",
       !(
@@ -353,6 +344,7 @@ function startRenderingLoop() {
     );
 
     if (testState.testDataDirty) {
+      // Set gauge rotations
       downloadProgress.style = `--progress-rotation: ${
         testState.testData.dlProgress * 180
       }deg`;
@@ -368,23 +360,30 @@ function startRenderingLoop() {
         testState.testData.testState === 3
       )}deg`;
 
+      // Set numeric values
       downloadText.textContent = numberToText(testState.testData.dlStatus);
       uploadText.textContent = numberToText(testState.testData.ulStatus);
       ping.textContent = numberToText(testState.testData.pingStatus);
       jitter.textContent = numberToText(testState.testData.jitterStatus);
 
+      // Set user's IP and provider
       if (testState.testData.clientIp) {
+        // Clear previous content
         privacyWarning.innerHTML = '';
+
         const connectedThrough = document.createElement('span');
         connectedThrough.textContent = 'You are connected through:';
+  
         const ipAddress = document.createTextNode(testState.testData.clientIp);
 
         privacyWarning.appendChild(connectedThrough);
         privacyWarning.appendChild(document.createElement('br'));
         privacyWarning.appendChild(ipAddress);
+  
         privacyWarning.classList.remove("hidden");
       }
 
+      // Set image for sharing results
       if (testState.testData.testId) {
         resultsImage.src =
           window.location.href.substring(
@@ -406,16 +405,20 @@ function startRenderingLoop() {
 
 /**
  * Convert a speed in Mbits per second to a rotation for the gauge
+ * @param {string} speed Speed in Mbits
+ * @param {boolean} oscillate If the gauge should wiggle a bit
+ * @returns {number} Rotation for the gauge in degrees
  */
 function mbpsToRotation(speed, oscillate) {
   speed = Number(speed);
   if (speed <= 0) return 0;
 
   const minSpeed = 0;
-  const maxSpeed = 10000;
+  const maxSpeed = 10000; // 10 Gbps maxes out the gauge
   const minRotation = 0;
   const maxRotation = 180;
 
+  // Can't do log10 of values less than one, +1 all to keep it fair
   const logMinSpeed = Math.log10(minSpeed + 1);
   const logMaxSpeed = Math.log10(maxSpeed + 1);
   const logSpeed = Math.log10(speed + 1);
@@ -424,11 +427,14 @@ function mbpsToRotation(speed, oscillate) {
   const oscillation = oscillate ? 1 + 0.01 * Math.sin(Date.now() / 100) : 1;
   const rotation = power * oscillation * maxRotation;
 
+  // Make sure we stay within bounds at all times
   return Math.max(Math.min(rotation, maxRotation), minRotation);
 }
 
 /**
  * Convert a number to a user friendly version
+ * @param {string} value Speed, ping or jitter
+ * @returns {string} A text version with proper decimals
  */
 function numberToText(value) {
   if (!value) return "00";
