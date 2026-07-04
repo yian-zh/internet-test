@@ -2,8 +2,18 @@ import requests
 import time
 import csv
 import os
+import socket
+from concurrent.futures import ThreadPoolExecutor
+from urllib3.connection import HTTPConnection
 
-TARGET = "http://10.0.9.101:8080"
+# Disable Nagle's algorithm (TCP_NODELAY) globally for urllib3/requests
+HTTPConnection.default_socket_options = (
+    HTTPConnection.default_socket_options + [
+        (socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    ]
+)
+
+TARGET = "http://192.168.100.227:8080"
 
 # --- PING / LATENCY TEST ---
 rtts = []
@@ -18,7 +28,7 @@ except requests.RequestException:
 for _ in range(100):
     try:
         start = time.perf_counter()
-        r = session.get(f"{TARGET}/ping", timeout=1.0)
+        r = session.get(f"{TARGET}/ping")
         r.raise_for_status()
         rtt = (time.perf_counter() - start) * 1000
         rtts.append(rtt)
@@ -26,7 +36,7 @@ for _ in range(100):
         rtts.append(None)
     
     # Tiny sleep to avoid network/buffer congestion skewing the results
-    time.sleep(0.05)
+    # time.sleep(0.05)
 
 # Calculate statistics ignoring lost packets (None)
 valid_rtts = [r for r in rtts if r is not None]
@@ -54,31 +64,47 @@ print(f"Packet loss: {loss:.1f}%")
 # --- DOWNLOAD SPEED TEST ---
 download_mbps = 0.0
 try:
+    def download_stream():
+        s = requests.Session()
+        r = s.get(f"{TARGET}/download", stream=True, timeout=5.0)
+        r.raise_for_status()
+        bytes_received = 0
+        for chunk in r.iter_content(chunk_size=256 * 1024):
+            bytes_received += len(chunk)
+        return bytes_received
+
+    num_threads = 4
     start = time.perf_counter()
-    # stream=True allows us to read in larger chunks rather than using requests default small chunk sizes
-    r = session.get(f"{TARGET}/download", stream=True, timeout=5.0)
-    r.raise_for_status()
-    bytes_received = 0
-    # Read in 256KB chunks for maximum speed and minimum memory/CPU overhead in Python
-    for chunk in r.iter_content(chunk_size=256 * 1024):
-        bytes_received += len(chunk)
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(download_stream) for _ in range(num_threads)]
+        total_bytes = sum(f.result() for f in futures)
+    
     elapsed = time.perf_counter() - start
-    download_mbps = (bytes_received * 8) / elapsed / 1_000_000
-    print(f"Download: {download_mbps:.2f} Mbps")
-except requests.RequestException as e:
+    download_mbps = (total_bytes * 8) / elapsed / 1_000_000
+    print(f"Download: {download_mbps:.2f} Mbps (using {num_threads} parallel streams)")
+except Exception as e:
     print(f"Download speed test failed: {e}")
 
 # --- UPLOAD SPEED TEST ---
 upload_mbps = 0.0
 try:
-    data = b'0' * (10 * 1024 * 1024)  # 10 MB
+    data = b'0' * (10 * 1024 * 1024)  # 10 MB per stream
+    def upload_stream():
+        s = requests.Session()
+        r = s.post(f"{TARGET}/upload", data=data, timeout=10.0)
+        r.raise_for_status()
+        return len(data)
+
+    num_threads = 4
     start = time.perf_counter()
-    r = session.post(f"{TARGET}/upload", data=data, timeout=10.0)
-    r.raise_for_status()
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(upload_stream) for _ in range(num_threads)]
+        total_bytes = sum(f.result() for f in futures)
+        
     elapsed = time.perf_counter() - start
-    upload_mbps = (len(data) * 8) / elapsed / 1_000_000
-    print(f"Upload: {upload_mbps:.2f} Mbps")
-except requests.RequestException as e:
+    upload_mbps = (total_bytes * 8) / elapsed / 1_000_000
+    print(f"Upload: {upload_mbps:.2f} Mbps (using {num_threads} parallel streams)")
+except Exception as e:
     print(f"Upload speed test failed: {e}")
 
 # --- SAVE RESULTS TO CSV ---
