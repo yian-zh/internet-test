@@ -169,3 +169,64 @@
     }
   }
 }
+
+.custom-server-inputs {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  width: 50rem;
+  margin: 2rem auto;
+
+  @media screen and (max-width: 500px) {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  & input {
+    flex: 1;
+    padding: 1.2rem 1.6rem;
+    font-size: 1.6rem;
+    border: 1px solid var(--server-selector-border-color);
+    border-radius: 0.8rem;
+    background-color: var(--server-selector-background-color);
+    color: var(--primary-text-color);
+    outline: none;
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: var(--theme-green);
+    }
+  }
+
+  & button {
+    padding: 1.2rem 2rem;
+    font-size: 1.6rem;
+    font-weight: 700;
+    border-radius: 0.8rem;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s, opacity 0.2s;
+  }
+
+  & #add-custom-server {
+    background-color: var(--theme-green);
+    color: #000;
+
+    &:hover {
+      background-color: var(--theme-pink);
+      color: #fff;
+    }
+  }
+
+  & #clear-custom-servers {
+    background-color: transparent;
+    border: 1px solid var(--server-selector-border-color);
+    color: var(--primary-text-color);
+
+    &:hover {
+      border-color: var(--theme-pink);
+      color: var(--theme-pink);
+    }
+  }
+}

@@ -13,7 +13,7 @@ HTTPConnection.default_socket_options = (
     ]
 )
 
-TARGET = "http://192.168.100.227:8080"
+TARGET = "http://localhost:8080"
 
 # --- PING / LATENCY TEST ---
 rtts = []

@@ -70,6 +70,44 @@ function hookUpButtons() {
         document.querySelectorAll("dialog").forEach((modal) => modal.close())
       );
     });
+
+  const addBtn = document.querySelector("#add-custom-server");
+  if (addBtn) {
+    addBtn.addEventListener("click", () => {
+      const inputEl = document.querySelector("#custom-server-ip");
+      const value = inputEl.value.trim();
+      if (!value) return;
+      
+      let serverUrl = value;
+      if (!/^https?:\/\//i.test(serverUrl)) {
+        serverUrl = "http://" + serverUrl;
+      }
+      
+      const newServer = {
+        name: `Custom (${value})`,
+        server: serverUrl,
+        dlURL: "download",
+        ulURL: "upload",
+        pingURL: "ping",
+        getIpURL: "ping"
+      };
+      
+      const saved = JSON.parse(localStorage.getItem("custom_speedtest_servers") || "[]");
+      saved.push(newServer);
+      localStorage.setItem("custom_speedtest_servers", JSON.stringify(saved));
+      
+      inputEl.value = "";
+      applyServerListJSON();
+    });
+  }
+
+  const clearBtn = document.querySelector("#clear-custom-servers");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      localStorage.removeItem("custom_speedtest_servers");
+      applyServerListJSON();
+    });
+  }
 }
 
 /**
@@ -112,7 +150,7 @@ async function copyLinkButtonClickHandler() {
 async function applyServerListJSON() {
   try {
     // Inlined server configuration to bypass any CDN caching issues
-    const servers = [
+    const defaultServers = [
       {
         name: "Speedtest Server",
         server: "/",
@@ -122,6 +160,9 @@ async function applyServerListJSON() {
         getIpURL: "ping"
       }
     ];
+
+    const custom = JSON.parse(localStorage.getItem("custom_speedtest_servers") || "[]");
+    const servers = [...defaultServers, ...custom];
 
     testState.servers = servers;
 
