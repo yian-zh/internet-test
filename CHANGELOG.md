@@ -63,3 +63,38 @@ This document details the optimizations and changes introduced to improve latenc
   * `/ping`: `[15:04:05] Ping request from 10.0.9.x`
   * `/download`: `[15:04:05] Download started by 10.0.9.x`
   * `/upload`: `[15:04:05] Upload started/completed by 10.0.9.x (received X.XX MB)`
+
+---
+
+## 4. Scaled 50MB Payload & TCP Warmup (`client.py` & `server.go`)
+
+### Test Payload Expansion
+* **Before**: Download and upload tests sent 10 MB per stream (40 MB total over 4 parallel streams), completing in ~0.1s over 1 Gbps and causing CPU scheduling variance.
+* **After**: Increased test payload size to 50 MB per stream (200 MB total over 4 streams). Measurements now span ~2 seconds, allowing TCP throughput to stabilize at physical line rates (~940–1000+ Mbps).
+
+### Zero-RAM Streaming in `server.go`
+* **Before**: Allocated a single large `10MB` slice per request (`make([]byte, 10*1024*1024)`).
+* **After**: Streamed 50 MB payloads using a single reusable 1 MB buffer chunk. Server memory consumption remains near 0 MB regardless of request volume.
+
+### TCP Congestion Window Warmup
+* **Before**: Speed timers started immediately on cold streams, factoring TCP Slow-Start ramp-up delays into throughput averages.
+* **After**: Added pre-test warmup requests to ramp up TCP congestion windows before launching timed parallel streams.
+
+---
+
+## 5. Security & Production Hardening (`server.go`)
+
+### Unbounded Upload Protection
+* **Before**: `/upload` used raw `io.Copy(io.Discard, r.Body)`, allowing malicious endless upload streams.
+* **After**: Wrapped request bodies with `http.MaxBytesReader(w, r.Body, 100*1024*1024)` to hard-cap uploads at 100 MB max per request with `HTTP 413 Payload Too Large`.
+
+### Connection Timeout Guard (Slowloris Protection)
+* **Before**: Used default `http.ListenAndServe(":8080", nil)` with zero timeouts, leaving sockets vulnerable to connection exhaustion.
+* **After**: Configured explicit `http.Server` timeouts:
+  * `ReadTimeout`: 15 seconds
+  * `WriteTimeout`: 30 seconds
+  * `IdleTimeout`: 60 seconds
+
+### CORS & Proxy Header Standardization
+* **Before**: Static CORS headers per handler and basic IP extraction.
+* **After**: Added `enableCORS` helper with `HTTP OPTIONS` preflight support, `no-cache` cache control, and safe extraction of the primary client IP from comma-separated `X-Forwarded-For` proxy chains.

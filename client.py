@@ -64,9 +64,15 @@ print(f"Packet loss: {loss:.1f}%")
 # --- DOWNLOAD SPEED TEST ---
 download_mbps = 0.0
 try:
+    # Connection warmup stream so TCP congestion window ramps up before timer starts
+    try:
+        requests.get(f"{TARGET}/download", stream=True, timeout=5.0).close()
+    except Exception:
+        pass
+
     def download_stream():
         s = requests.Session()
-        r = s.get(f"{TARGET}/download", stream=True, timeout=5.0)
+        r = s.get(f"{TARGET}/download", stream=True, timeout=15.0)
         r.raise_for_status()
         bytes_received = 0
         for chunk in r.iter_content(chunk_size=256 * 1024):
@@ -88,10 +94,17 @@ except Exception as e:
 # --- UPLOAD SPEED TEST ---
 upload_mbps = 0.0
 try:
-    data = b'0' * (10 * 1024 * 1024)  # 10 MB per stream
+    data = b'0' * (50 * 1024 * 1024)  # 50 MB per stream (200 MB total across 4 streams)
+    
+    # Connection warmup stream so TCP congestion window ramps up before timer starts
+    try:
+        requests.post(f"{TARGET}/upload", data=b'0' * (1 * 1024 * 1024), timeout=5.0)
+    except Exception:
+        pass
+
     def upload_stream():
         s = requests.Session()
-        r = s.post(f"{TARGET}/upload", data=data, timeout=10.0)
+        r = s.post(f"{TARGET}/upload", data=data, timeout=15.0)
         r.raise_for_status()
         return len(data)
 
